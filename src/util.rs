@@ -1,4 +1,4 @@
-use std::io::{self, BufRead, Seek, SeekFrom};
+use std::io::{self, Read, Seek, SeekFrom};
 
 use byteorder::ReadBytesExt;
 use thiserror::Error;
@@ -6,22 +6,20 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum LzokayError {
     #[error("Input was not consumed")]
-    InputNotConsumed, // = 1,
+    InputNotConsumed,
     #[error("Error")]
-    Error, // = -1,
+    Error,
     #[error("Input overrun")]
-    InputOverrun, // = -2,
+    InputOverrun,
     #[error("Output overrun")]
-    OutputOverrun, // = -3,
+    OutputOverrun,
     #[error("Lookbehind Overrun")]
-    LookbehindOverrun, // = -4,
+    LookbehindOverrun,
 
-    #[error("read or write failed, source: {source}; Backtrace:")]
+    #[error("read or write failed, source: {source}")]
     IOError {
         #[from]
         source: io::Error,
-        // #[backtrace]
-        // backtrace: Backtrace,
     },
 }
 
@@ -37,15 +35,11 @@ pub(crate) static mut M1_MARKER: u32 = 0;
 pub(crate) const M3_MARKER: u32 = 0x20;
 pub(crate) const M4_MARKER: u32 = 0x10;
 
-// pub(crate) unsafe fn get_le16(p: *const u8) -> u16 {
-//     *(p as *const u16)
-// }
-
 pub(crate) fn peek_u8<I>(reader: &mut I) -> io::Result<u8>
 where
-    I: BufRead + Seek,
+    I: Read + Seek,
 {
-    let pos = reader.seek(SeekFrom::Current(0))?;
+    let pos = reader.stream_position()?;
     let ret = reader.read_u8()?;
     reader.seek(SeekFrom::Start(pos))?;
     Ok(ret)
@@ -53,7 +47,7 @@ where
 
 pub(crate) fn read_bytes<I>(reader: &mut I, size: usize) -> io::Result<Vec<u8>>
 where
-    I: BufRead + Seek,
+    I: Read + Seek,
 {
     let mut buf = vec![0u8; size];
     reader.read_exact(&mut buf)?;
@@ -62,15 +56,15 @@ where
 
 pub(crate) fn consume_zero_byte_length_stream<I>(reader: &mut I) -> Result<u64, LzokayError>
 where
-    I: BufRead + Seek,
+    I: Read + Seek,
 {
-    let old_pos = reader.seek(SeekFrom::Current(0))?;
+    let old_pos = reader.stream_position()?;
 
     while peek_u8(reader)? == 0 {
         reader.seek(SeekFrom::Current(1))?;
     }
 
-    let offset = reader.seek(SeekFrom::Current(0))? - old_pos;
+    let offset = reader.stream_position()? - old_pos;
 
     Ok(offset)
 }

@@ -27,8 +27,7 @@ pub fn compress_with_dict(src: &[u8], dict: &mut Dict) -> Result<Vec<u8>, Lzokay
         let src_buf = &src[0] as *const u8;
         let dst_buf = dst.as_mut_ptr();
         let mut size: usize = 0;
-        let res =
-            lzokay_compress_dict(src_buf, src.len() as usize, dst_buf, worst, &mut size, dict);
+        let res = lzokay_compress_dict(src_buf, src.len(), dst_buf, worst, &mut size, dict);
 
         if let Err(err) = res {
             Err(err)
@@ -103,23 +102,21 @@ impl State {
             }
             *buf.offset(self.wind_e as isize) = 0;
             if self.wind_e < 0x800_u32 {
-                *buf.offset(((0xbfff_u32 + 0x800_u32) as u32).wrapping_add(self.wind_e) as isize) =
-                    0
+                *buf.offset((0xbfff_u32 + 0x800_u32).wrapping_add(self.wind_e) as isize) = 0
             }
         } else {
             *buf.offset(self.wind_e as isize) = *self.inp;
             if self.wind_e < 0x800_u32 {
-                *buf.offset(((0xbfff_u32 + 0x800_u32) as u32).wrapping_add(self.wind_e) as isize) =
-                    *self.inp
+                *buf.offset((0xbfff_u32 + 0x800_u32).wrapping_add(self.wind_e) as isize) = *self.inp
             }
             self.inp = self.inp.offset(1)
         }
         self.wind_e = self.wind_e.wrapping_add(1);
-        if self.wind_e == (0xbfff_u32 + 0x800_u32) as u32 {
+        if self.wind_e == 0xbfff_u32 + 0x800_u32 {
             self.wind_e = 0
         }
         self.wind_b = self.wind_b.wrapping_add(1);
-        if self.wind_b == (0xbfff_u32 + 0x800_u32) as u32 {
+        if self.wind_b == 0xbfff_u32 + 0x800_u32 {
             self.wind_b = 0
         };
     }
@@ -150,17 +147,6 @@ impl Match3 {
     }
     unsafe fn init(&mut self) {
         self.chain_sz = vec![0; 16384];
-
-        // write_bytes(
-        //     self.chain_sz.as_mut_ptr(),
-        //     0,
-        //     ::std::mem::size_of::<[u16; 16384]>() as usize,
-        // );
-        // memset(
-        //     (*match_0).chain_sz.as_mut_ptr() as *mut libc::c_void,
-        //     0 as u32,
-        //     ::std::mem::size_of::<[u16; 16384]>() as usize,
-        // );
     }
     unsafe fn remove(&mut self, pos: u32, b: *const u8) {
         self.chain_sz[Self::make_key(b.offset(pos as isize)) as usize] =
@@ -199,15 +185,6 @@ impl Match2 {
     }
     unsafe fn init(&mut self) {
         self.head = vec![65535_u16; 65536];
-
-        // let mut i: usize = 0;
-        // while i
-        //     < (::std::mem::size_of::<[u16; 65536]>() as usize)
-        //         .wrapping_div(::std::mem::size_of::<u16>() as usize)
-        // {
-        //     self.head[i as usize] = 65535_u16;
-        //     i = i.wrapping_add(1)
-        // }
     }
     unsafe fn add(&mut self, pos: u16, b: *const u8) {
         self.head[Match2::make_key(b.offset(pos as isize)) as usize] = pos;
@@ -277,11 +254,6 @@ impl Dict {
         s.wind_e = s.wind_sz;
         copy_nonoverlapping(s.inp, self.buffer.as_mut_ptr(), s.wind_sz as usize);
 
-        // memcpy(
-        //     (*dict).buffer.as_mut_ptr() as *mut libc::c_void,
-        //     s.inp as *const libc::c_void,
-        //     s.wind_sz as usize,
-        // );
         s.inp = s.inp.offset(s.wind_sz as isize);
         if s.wind_e == (0xbfff_u32 + 0x800_u32) {
             s.wind_e = 0
@@ -294,15 +266,6 @@ impl Dict {
                 0,
                 3,
             );
-            // memset(
-            //     &mut *(*dict)
-            //         .buffer
-            //         .as_mut_ptr()
-            //         .offset(s.wind_b.wrapping_add(s.wind_sz) as isize) as *mut u8
-            //         as *mut libc::c_void,
-            //     0 as u32,
-            //     3 as u32 as usize,
-            // );
         };
     }
     unsafe fn reset_next_input_entry(&mut self, mut s: &mut State) {
@@ -393,14 +356,8 @@ impl Dict {
             }
             self.match3.best_len[s.wind_b as usize] = *lb_len as u16;
             let end_best_pos: *const u32 = &mut *best_pos.as_mut_ptr().add(
-                (::std::mem::size_of::<[u32; 34]>() as usize)
-                    .wrapping_div(::std::mem::size_of::<u32>() as usize),
+                (::std::mem::size_of::<[u32; 34]>()).wrapping_div(::std::mem::size_of::<u32>()),
             ) as *mut u32;
-
-            // let mut end_best_pos: *const u32 = &mut *best_pos.as_mut_ptr().offset(
-            //     (::std::mem::size_of::<[u32; 34]>() as usize)
-            //         .wrapping_div(::std::mem::size_of::<u32>() as usize) as isize,
-            // ) as *mut u32;
 
             let mut offit: *mut u32 = best_off.offset(2);
             let mut posit: *const u32 = best_pos.as_mut_ptr().offset(2);
@@ -444,7 +401,7 @@ unsafe fn find_better_match(best_off: *const u32, p_lb_len: *mut u32, p_lb_off: 
         && *best_off.offset((*p_lb_len).wrapping_sub(1) as isize) != 0
         && *best_off.offset((*p_lb_len).wrapping_sub(1) as isize) <= M2_MAX_OFFSET
     {
-        *p_lb_len = (*p_lb_len as u32).wrapping_sub(1) as u32 as u32;
+        *p_lb_len = (*p_lb_len).wrapping_sub(1);
         *p_lb_off = *best_off.offset(*p_lb_len as isize)
     } else if *p_lb_off > M3_MAX_OFFSET
         && *p_lb_len >= M4_MAX_LEN.wrapping_add(1)
@@ -452,7 +409,7 @@ unsafe fn find_better_match(best_off: *const u32, p_lb_len: *mut u32, p_lb_off: 
         && *best_off.offset((*p_lb_len).wrapping_sub(2) as isize) != 0
         && *best_off.offset(*p_lb_len as isize) <= M2_MAX_OFFSET
     {
-        *p_lb_len = (*p_lb_len as u32).wrapping_sub(2) as u32;
+        *p_lb_len = (*p_lb_len).wrapping_sub(2);
         *p_lb_off = *best_off.offset(*p_lb_len as isize)
     } else if *p_lb_off > M3_MAX_OFFSET
         && *p_lb_len >= M4_MAX_LEN.wrapping_add(1)
@@ -460,7 +417,7 @@ unsafe fn find_better_match(best_off: *const u32, p_lb_len: *mut u32, p_lb_off: 
         && *best_off.offset((*p_lb_len).wrapping_sub(1) as isize) != 0
         && *best_off.offset((*p_lb_len).wrapping_sub(2) as isize) <= M3_MAX_OFFSET
     {
-        *p_lb_len = (*p_lb_len as u32).wrapping_sub(1);
+        *p_lb_len = (*p_lb_len).wrapping_sub(1);
         *p_lb_off = *best_off.offset(*p_lb_len as isize)
     };
 }
@@ -493,7 +450,7 @@ unsafe fn encode_literal_run(
         if outp.offset(lit_len.wrapping_sub(18).wrapping_div(255).wrapping_add(2) as isize)
             > outp_end as *mut u8
         {
-            *dst_size = outp.offset_from(dst) as usize as usize;
+            *dst_size = outp.offset_from(dst) as usize;
             return Err(LzokayError::OutputOverrun);
         }
         *outp = 0;
@@ -508,15 +465,11 @@ unsafe fn encode_literal_run(
         outp = outp.offset(1);
     }
     if outp.offset(lit_len as isize) > outp_end as *mut u8 {
-        *dst_size = outp.offset_from(dst) as usize as usize;
+        *dst_size = outp.offset_from(dst) as usize;
         return Err(LzokayError::OutputOverrun);
     }
     copy_nonoverlapping(lit_ptr, outp, lit_len as usize);
-    // memcpy(
-    //     outp as *mut libc::c_void,
-    //     lit_ptr as *const libc::c_void,
-    //     lit_len as usize,
-    // );
+
     outp = outp.offset(lit_len as isize);
     *outpp = outp;
     Ok(())
@@ -534,7 +487,7 @@ unsafe fn encode_lookback_match(
     if lb_len == 2 {
         lb_off = lb_off.wrapping_sub(1);
         if outp.offset(2) > outp_end as *mut u8 {
-            *dst_size = outp.offset_from(dst) as usize as usize;
+            *dst_size = outp.offset_from(dst) as usize;
             return Err(LzokayError::OutputOverrun);
         }
         *outp = (M1_MARKER | ((lb_off & 0x3) << 2)) as u8;
@@ -592,7 +545,7 @@ unsafe fn encode_lookback_match(
             outp = outp.offset(1);
         }
         if outp.offset(2) > outp_end as *mut u8 {
-            *dst_size = outp.offset_from(dst) as usize as usize;
+            *dst_size = outp.offset_from(dst) as usize;
             return Err(LzokayError::OutputOverrun);
         }
         *outp = (lb_off << 2) as u8;
@@ -600,10 +553,10 @@ unsafe fn encode_lookback_match(
         *outp = (lb_off >> 6) as u8;
         outp = outp.offset(1);
     } else {
-        lb_off = lb_off.wrapping_sub(0x4000) as u32;
+        lb_off = lb_off.wrapping_sub(0x4000);
         if lb_len <= M4_MAX_LEN {
             if outp.offset(1) > outp_end as *mut u8 {
-                *dst_size = outp.offset_from(dst) as usize as usize;
+                *dst_size = outp.offset_from(dst) as usize;
                 return Err(LzokayError::OutputOverrun);
             }
             *outp = (M4_MARKER | ((lb_off & 0x4000) >> 11) | lb_len.wrapping_sub(2)) as u8;
@@ -612,7 +565,7 @@ unsafe fn encode_lookback_match(
             lb_len = lb_len.wrapping_sub(M4_MAX_LEN);
             if outp.offset(lb_len.wrapping_div(255).wrapping_add(2) as isize) > outp_end as *mut u8
             {
-                *dst_size = outp.offset_from(dst) as usize as usize;
+                *dst_size = outp.offset_from(dst) as usize;
                 return Err(LzokayError::OutputOverrun);
             }
             *outp = (M4_MARKER | ((lb_off & 0x4000) >> 11)) as u8;
@@ -627,7 +580,7 @@ unsafe fn encode_lookback_match(
             outp = outp.offset(1);
         }
         if outp.offset(2) > outp_end as *mut u8 {
-            *dst_size = outp.offset_from(dst) as usize as usize;
+            *dst_size = outp.offset_from(dst) as usize;
             return Err(LzokayError::OutputOverrun);
         }
         *outp = (lb_off << 2) as u8;
@@ -730,18 +683,6 @@ unsafe fn lzokay_compress_dict(
     outp = outp.offset(1);
     *outp = 0;
     outp = outp.offset(1);
-    *dst_size = outp.offset_from(dst) as usize as usize;
+    *dst_size = outp.offset_from(dst) as usize;
     Ok(())
 }
-
-// unsafe extern "C" fn run_static_initializers() {
-//     Max255Count = ((!0) as usize / 255 - 2) as usize;
-//     // Max255Count = (18446744073709551615 as usize)
-//     //     .wrapping_div(255 as u32 as usize)
-//     //     .wrapping_sub(2 as u32 as usize)
-// }
-// #[used]
-// #[cfg_attr(target_os = "linux", link_section = ".init_array")]
-// #[cfg_attr(target_os = "windows", link_section = ".CRT$XIB")]
-// #[cfg_attr(target_os = "macos", link_section = "__DATA,__mod_init_func")]
-// static INIT_ARRAY: [unsafe extern "C" fn(); 1] = [run_static_initializers];

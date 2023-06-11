@@ -43,7 +43,7 @@ mod tests {
             let data_compressed = compress::compress(&data).unwrap();
 
             let data_uncompressed =
-                decompress::decompress_stream(&mut Cursor::new(data_compressed), None).unwrap();
+                decompress::decompress_reader(&mut Cursor::new(data_compressed), None).unwrap();
 
             sha = Sha1::new();
             sha.update(data_uncompressed);
@@ -60,7 +60,7 @@ mod tests {
             let data = fs::read(file.as_ref().unwrap().path()).unwrap();
 
             let data_uncompressed =
-                decompress::decompress_stream(&mut Cursor::new(data), None).unwrap();
+                decompress::decompress_reader(&mut Cursor::new(data), None).unwrap();
 
             let mut sha = Sha1::new();
             sha.update(data_uncompressed);
@@ -120,7 +120,7 @@ mod tests {
         //     decompress::decompress_stream(&mut Cursor::new(compressed.clone()), Some(442780))
         //         .unwrap();
 
-        let size2 = decompress::decompress_stream(&mut Cursor::new(compressed), None).unwrap();
+        let size2 = decompress::decompress_reader(&mut Cursor::new(compressed), None).unwrap();
         fs::write("./test-data/output/pic_small.out.png", size2).unwrap();
     }
 }
