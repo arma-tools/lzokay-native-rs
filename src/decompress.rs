@@ -28,7 +28,7 @@ where
         let len: usize = (reader.read_u8()? - 17) as usize;
         let written = result.write(&read_bytes(reader, len)?)?;
         assert!(written == len);
-        state = 4
+        state = 4;
     } else if peek_u8(reader)? >= 18 {
         /* 18..21 : copy 0..3 literals
          *          state = (byte - 17) = 0..3  [ copy <state> literals ]
@@ -83,7 +83,7 @@ where
             }
             nstate = reader.read_u16::<LittleEndian>()? as usize;
             lbcur = result.len() as u64 - ((nstate >> 2).wrapping_add(1) as u64);
-            nstate &= 0x3
+            nstate &= 0x3;
         } else if inst as u32 & M4_MARKER != 0 {
             /* [M4]
              * 0 0 0 1 H L L L  (16..31)
@@ -150,7 +150,7 @@ where
                 ((inst as u32) >> 2).wrapping_add(((reader.read_u8()? as u32) << 2).wrapping_add(1))
                     as u64,
             );
-            lblen = 2
+            lblen = 2;
         } else {
             /* If last instruction used to copy 4 or more literals (as detected by
              * state == 4), the instruction becomes a copy of a 3-byte block from the
@@ -165,12 +165,12 @@ where
             nstate = (inst & 0x3) as usize;
             lbcur = (result.len() as u64)
                 - (((inst as u32 >> 2) + ((reader.read_u8()? as u32) << 2) + 2049) as isize) as u64;
-            lblen = 3
+            lblen = 3;
         }
 
         for i in 0..lblen {
             let val = result[lbcur as usize + i];
-            result.write_u8(val).unwrap();
+            result.write_u8(val)?;
         }
 
         state = nstate;

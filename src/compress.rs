@@ -11,7 +11,7 @@ use crate::{
     Error,
 };
 
-pub fn compress_worst_size(s: usize) -> usize {
+pub const fn compress_worst_size(s: usize) -> usize {
     s + s / 16 + 64 + 3
 }
 
@@ -76,15 +76,15 @@ pub struct State {
 unsafe fn std_mismatch(mut first1: *mut u8, last1: *mut u8, mut first2: *mut u8) -> *mut u8 {
     while first1 != last1 && *first1 as u32 == *first2 as u32 {
         first1 = first1.offset(1);
-        first2 = first2.offset(1)
+        first2 = first2.offset(1);
     }
     first1
 }
 /* Max M3 len + 1 */
 
 impl State {
-    fn new() -> Self {
-        State {
+    const fn new() -> Self {
+        Self {
             src: null(),
             src_end: null(),
             inp: null(),
@@ -101,26 +101,27 @@ impl State {
     unsafe fn get_byte(&mut self, buf: *mut u8) {
         if self.inp >= self.src_end {
             if self.wind_sz > 0 {
-                self.wind_sz = self.wind_sz.wrapping_sub(1)
+                self.wind_sz = self.wind_sz.wrapping_sub(1);
             }
             *buf.offset(self.wind_e as isize) = 0;
             if self.wind_e < 0x800_u32 {
-                *buf.offset((0xbfff_u32 + 0x800_u32).wrapping_add(self.wind_e) as isize) = 0
+                *buf.offset((0xbfff_u32 + 0x800_u32).wrapping_add(self.wind_e) as isize) = 0;
             }
         } else {
             *buf.offset(self.wind_e as isize) = *self.inp;
             if self.wind_e < 0x800_u32 {
-                *buf.offset((0xbfff_u32 + 0x800_u32).wrapping_add(self.wind_e) as isize) = *self.inp
+                *buf.offset((0xbfff_u32 + 0x800_u32).wrapping_add(self.wind_e) as isize) =
+                    *self.inp;
             }
-            self.inp = self.inp.offset(1)
+            self.inp = self.inp.offset(1);
         }
         self.wind_e = self.wind_e.wrapping_add(1);
         if self.wind_e == 0xbfff_u32 + 0x800_u32 {
-            self.wind_e = 0
+            self.wind_e = 0;
         }
         self.wind_b = self.wind_b.wrapping_add(1);
         if self.wind_b == 0xbfff_u32 + 0x800_u32 {
-            self.wind_b = 0
+            self.wind_b = 0;
         };
     }
 
@@ -134,7 +135,7 @@ impl State {
 }
 
 impl Match3 {
-    unsafe fn make_key(data: *const u8) -> u32 {
+    const unsafe fn make_key(data: *const u8) -> u32 {
         let data_0 = *data.offset(0) as u32;
         let data_1 = *data.offset(1) as u32;
         let data_2 = *data.offset(2) as u32;
@@ -169,7 +170,7 @@ impl Match3 {
         self.chain_sz[key as usize] = self.chain_sz[key as usize].wrapping_add(1);
         *match_count = tmp as u32;
         if *match_count > 0x800_u32 {
-            *match_count = 0x800_u32
+            *match_count = 0x800_u32;
         }
         self.head[key as usize] = s.wind_b as u16;
     }
@@ -183,22 +184,24 @@ impl Match3 {
 }
 
 impl Match2 {
-    unsafe fn make_key(data: *const u8) -> u32 {
+    const unsafe fn make_key(data: *const u8) -> u32 {
         *data.offset(0) as u32 ^ ((*data.offset(1) as u32) << 8)
     }
     unsafe fn init(&mut self) {
         self.head = vec![65535_u16; 65536];
     }
     unsafe fn add(&mut self, pos: u16, b: *const u8) {
-        self.head[Match2::make_key(b.offset(pos as isize)) as usize] = pos;
+        self.head[Self::make_key(b.offset(pos as isize)) as usize] = pos;
     }
     unsafe fn remove(&mut self, pos: u32, b: *const u8) {
-        let p: *mut u16 = &mut *self.head.as_mut_ptr().offset((Match2::make_key
-            as unsafe fn(_: *const u8) -> u32)(
-            b.offset(pos as isize)
-        ) as isize) as *mut u16;
+        let p: *mut u16 = &mut *self
+            .head
+            .as_mut_ptr()
+            .offset(
+                (Self::make_key as unsafe fn(_: *const u8) -> u32)(b.offset(pos as isize)) as isize,
+            ) as *mut u16;
         if *p as u32 == pos {
-            *p = 65535_u16
+            *p = 65535_u16;
         };
     }
     unsafe fn search(
@@ -209,16 +212,16 @@ impl Match2 {
         best_pos: *mut u32,
         b: *const u8,
     ) -> bool {
-        let pos: u16 = self.head[Match2::make_key(b.offset(s.wind_b as isize)) as usize];
+        let pos: u16 = self.head[Self::make_key(b.offset(s.wind_b as isize)) as usize];
         if pos == 65535 {
             return false;
         }
         if *best_pos.offset(2) == 0 {
-            *best_pos.offset(2) = (pos as u32) + 1
+            *best_pos.offset(2) = (pos as u32) + 1;
         }
         if *lb_len < 2 {
             *lb_len = 2;
-            *lb_pos = pos as u32
+            *lb_pos = pos as u32;
         }
         true
     }
@@ -226,7 +229,7 @@ impl Match2 {
 
 impl Dict {
     pub fn new() -> Self {
-        Dict {
+        Self {
             match3: Match3 {
                 head: vec![0; 16384],
                 chain_sz: vec![0; 16384],
@@ -259,7 +262,7 @@ impl Dict {
 
         s.inp = s.inp.offset(s.wind_sz as isize);
         if s.wind_e == (0xbfff_u32 + 0x800_u32) {
-            s.wind_e = 0
+            s.wind_e = 0;
         }
         if s.wind_sz < 3 {
             write_bytes(
@@ -277,7 +280,7 @@ impl Dict {
             self.match3.remove(s.wind_e, self.buffer.as_mut_ptr());
             self.match2.remove(s.wind_e, self.buffer.as_mut_ptr());
         } else {
-            s.cycle1_countdown = s.cycle1_countdown.wrapping_sub(1)
+            s.cycle1_countdown = s.cycle1_countdown.wrapping_sub(1);
         };
     }
     unsafe fn advance(
@@ -295,7 +298,7 @@ impl Dict {
                 self.match3.skip_advance(s, self.buffer.as_mut_ptr());
                 self.match2.add(s.wind_b as u16, self.buffer.as_mut_ptr());
                 s.get_byte(self.buffer.as_mut_ptr());
-                i = i.wrapping_add(1)
+                i = i.wrapping_add(1);
             }
         }
         *lb_len = 1;
@@ -314,10 +317,10 @@ impl Dict {
         let best_len: u32 = *lb_len;
         if *lb_len >= s.wind_sz {
             if s.wind_sz == 0 {
-                best_char = -1
+                best_char = -1;
             }
             *lb_off = 0;
-            self.match3.best_len[s.wind_b as usize] = (0x800_u32 + 1) as u16
+            self.match3.best_len[s.wind_b as usize] = (0x800_u32 + 1) as u16;
         } else {
             if self.match2.search(
                 s,
@@ -338,7 +341,7 @@ impl Dict {
                     let match_len: u64 = mismatch.offset_from(ref_ptr) as usize as u64;
                     if match_len >= 2 {
                         if match_len < 34 && best_pos[match_len as usize] == 0 {
-                            best_pos[match_len as usize] = match_pos.wrapping_add(1)
+                            best_pos[match_len as usize] = match_pos.wrapping_add(1);
                         }
                         if match_len > *lb_len as u64 {
                             *lb_len = match_len as u32;
@@ -351,11 +354,11 @@ impl Dict {
                         }
                     }
                     i_0 = i_0.wrapping_add(1);
-                    match_pos = self.match3.chain[match_pos as usize] as u32
+                    match_pos = self.match3.chain[match_pos as usize] as u32;
                 }
             }
             if *lb_len > best_len {
-                *lb_off = s.pos2off(lb_pos)
+                *lb_off = s.pos2off(lb_pos);
             }
             self.match3.best_len[s.wind_b as usize] = *lb_len as u16;
             let end_best_pos: *const u32 = &mut *best_pos.as_mut_ptr().add(
@@ -371,7 +374,7 @@ impl Dict {
                     0
                 };
                 posit = posit.offset(1);
-                offit = offit.offset(1)
+                offit = offit.offset(1);
             }
         }
         self.reset_next_input_entry(s);
@@ -379,10 +382,10 @@ impl Dict {
         s.get_byte(self.buffer.as_mut_ptr());
         if best_char < 0 {
             s.buf_sz = 0;
-            *lb_len = 0
+            *lb_len = 0;
             /* Signal exit */
         } else {
-            s.buf_sz = s.wind_sz.wrapping_add(1)
+            s.buf_sz = s.wind_sz.wrapping_add(1);
         }
         s.bufp = s.inp.offset(-(s.buf_sz as isize));
     }
@@ -405,7 +408,7 @@ unsafe fn find_better_match(best_off: *const u32, p_lb_len: *mut u32, p_lb_off: 
         && *best_off.offset((*p_lb_len).wrapping_sub(1) as isize) <= M2_MAX_OFFSET
     {
         *p_lb_len = (*p_lb_len).wrapping_sub(1);
-        *p_lb_off = *best_off.offset(*p_lb_len as isize)
+        *p_lb_off = *best_off.offset(*p_lb_len as isize);
     } else if *p_lb_off > M3_MAX_OFFSET
         && *p_lb_len >= M4_MAX_LEN.wrapping_add(1)
         && *p_lb_len <= M2_MAX_LEN.wrapping_add(2)
@@ -413,7 +416,7 @@ unsafe fn find_better_match(best_off: *const u32, p_lb_len: *mut u32, p_lb_off: 
         && *best_off.offset(*p_lb_len as isize) <= M2_MAX_OFFSET
     {
         *p_lb_len = (*p_lb_len).wrapping_sub(2);
-        *p_lb_off = *best_off.offset(*p_lb_len as isize)
+        *p_lb_off = *best_off.offset(*p_lb_len as isize);
     } else if *p_lb_off > M3_MAX_OFFSET
         && *p_lb_len >= M4_MAX_LEN.wrapping_add(1)
         && *p_lb_len <= M3_MAX_LEN.wrapping_add(1)
@@ -421,7 +424,7 @@ unsafe fn find_better_match(best_off: *const u32, p_lb_len: *mut u32, p_lb_off: 
         && *best_off.offset((*p_lb_len).wrapping_sub(2) as isize) <= M3_MAX_OFFSET
     {
         *p_lb_len = (*p_lb_len).wrapping_sub(1);
-        *p_lb_off = *best_off.offset(*p_lb_len as isize)
+        *p_lb_off = *best_off.offset(*p_lb_len as isize);
     };
 }
 unsafe fn encode_literal_run(
@@ -441,7 +444,7 @@ unsafe fn encode_literal_run(
         *outp = 17u32.wrapping_add(lit_len) as u8;
         outp = outp.offset(1);
     } else if lit_len <= 3 {
-        *outp.offset(-2) = (*outp.offset(-2) as u32 | lit_len) as u8
+        *outp.offset(-2) = (*outp.offset(-2) as u32 | lit_len) as u8;
     } else if lit_len <= 18 {
         if outp.offset(1) > outp_end as *mut u8 {
             *dst_size = outp.offset_from(dst) as usize;
@@ -462,7 +465,7 @@ unsafe fn encode_literal_run(
         while l > 255 {
             *outp = 0;
             outp = outp.offset(1);
-            l = l.wrapping_sub(255)
+            l = l.wrapping_sub(255);
         }
         *outp = l as u8;
         outp = outp.offset(1);
@@ -542,7 +545,7 @@ unsafe fn encode_lookback_match(
             while l > 255 {
                 *outp = 0;
                 outp = outp.offset(1);
-                l = l.wrapping_sub(255)
+                l = l.wrapping_sub(255);
             }
             *outp = l as u8;
             outp = outp.offset(1);
@@ -577,7 +580,7 @@ unsafe fn encode_lookback_match(
             while l_0 > 255 {
                 *outp = 0;
                 outp = outp.offset(1);
-                l_0 = l_0.wrapping_sub(255)
+                l_0 = l_0.wrapping_sub(255);
             }
             *outp = l_0 as u8;
             outp = outp.offset(1);
@@ -623,7 +626,7 @@ unsafe fn lzokay_compress_dict(
     );
     while s.buf_sz > 0 {
         if lit_len == 0 {
-            lit_ptr = s.bufp
+            lit_ptr = s.bufp;
         }
         // if lb_len < 2
         //     || lb_len == 2 && (lb_off > M1_MAX_OFFSET || lit_len == 0 || lit_len >= 4)
@@ -643,7 +646,7 @@ unsafe fn lzokay_compress_dict(
                 && lb_off > M1_MAX_OFFSET.wrapping_add(M2_MAX_OFFSET)
                 && lit_len >= 4)
         {
-            lb_len = 0
+            lb_len = 0;
         }
         if lb_len == 0 {
             lit_len = lit_len.wrapping_add(1);

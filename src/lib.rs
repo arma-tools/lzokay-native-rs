@@ -1,3 +1,13 @@
+#![warn(missing_docs)]
+#![warn(clippy::cargo)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![warn(clippy::unwrap_used)]
+#![warn(clippy::expect_used)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::multiple_crate_versions)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 #[cfg(feature = "compress")]
 pub mod compress;
 
