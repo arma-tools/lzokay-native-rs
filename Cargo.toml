@@ -7,11 +7,14 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 thiserror = "1.0.30"
-byteorder = "1.4.3"
+byteorder = { version = "1.4.3", optional = true }
 
 [dev-dependencies]
 minilzo-rs = "0.6.0"
 sha1 = "0.10.5"
 
-#lzokay = { path = "../lzokay-rs" }
-#lzokay = "1.0.1"
+
+[features]
+default = ["compress", "decompress"]
+compress = []
+decompress = ["byteorder"]

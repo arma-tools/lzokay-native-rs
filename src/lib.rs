@@ -1,16 +1,23 @@
+#[cfg(feature = "compress")]
 pub mod compress;
+
+#[cfg(feature = "decompress")]
 pub mod decompress;
-pub mod util;
+
+mod util;
 
 pub use util::Error;
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, io::Cursor};
+    use std::fs;
+    #[cfg(any(feature = "decompress", feature = "compress"))]
+    use std::io::Cursor;
 
-    use sha1::{Digest, Sha1};
-
-    use crate::{compress, decompress};
+    #[cfg(any(feature = "decompress", feature = "compress"))]
+    use sha1::Digest;
+    #[cfg(any(feature = "decompress", feature = "compress"))]
+    use sha1::Sha1;
 
     #[allow(dead_code)]
     //#[test] // uncomment to generate compressed test files
@@ -31,6 +38,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "compress")]
     #[test]
     fn compress_decompress_test() {
         let files = fs::read_dir("./test-data/uncompressed").unwrap();
@@ -42,10 +50,11 @@ mod tests {
             sha.update(data.clone());
             let uncomp_data_sha = sha.finalize();
 
-            let data_compressed = compress::compress(&data).unwrap();
+            let data_compressed = crate::compress::compress(&data).unwrap();
 
             let data_uncompressed =
-                decompress::decompress_reader(&mut Cursor::new(data_compressed), None).unwrap();
+                crate::decompress::decompress_reader(&mut Cursor::new(data_compressed), None)
+                    .unwrap();
 
             sha = Sha1::new();
             sha.update(data_uncompressed);
@@ -54,6 +63,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "decompress")]
     #[test]
     fn decompress_test() {
         let files = fs::read_dir("./test-data/compressed").unwrap();
@@ -62,7 +72,7 @@ mod tests {
             let data = fs::read(file.as_ref().unwrap().path()).unwrap();
 
             let data_uncompressed =
-                decompress::decompress_reader(&mut Cursor::new(data), None).unwrap();
+                crate::decompress::decompress_reader(&mut Cursor::new(data), None).unwrap();
 
             let mut sha = Sha1::new();
             sha.update(data_uncompressed);
@@ -89,6 +99,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "compress")]
     #[test]
     fn check_lzo_decompress_compatibility() {
         let files = fs::read_dir("./test-data/uncompressed").unwrap();
@@ -103,7 +114,7 @@ mod tests {
             sha.update(data.clone());
             let uncomp_data_sha = sha.finalize();
 
-            let data_compressed = compress::compress(&data).unwrap();
+            let data_compressed = crate::compress::compress(&data).unwrap();
 
             let data_uncompressed = lzo.decompress_safe(&data_compressed, data_len).unwrap();
 
@@ -114,6 +125,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "decompress")]
     #[test]
     fn decompress_test_small() {
         let compressed = fs::read("./test-data/compressed/pic_small.png.lzo").unwrap();
@@ -122,7 +134,8 @@ mod tests {
         //     decompress::decompress_stream(&mut Cursor::new(compressed.clone()), Some(442780))
         //         .unwrap();
 
-        let size2 = decompress::decompress_reader(&mut Cursor::new(compressed), None).unwrap();
+        let size2 =
+            crate::decompress::decompress_reader(&mut Cursor::new(compressed), None).unwrap();
         fs::write("./test-data/output/pic_small.out.png", size2).unwrap();
     }
 }
