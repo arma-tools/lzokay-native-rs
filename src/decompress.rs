@@ -4,10 +4,7 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::util::{consume_zero_byte_length_stream, peek_u8, read_bytes, M3_MARKER, M4_MARKER};
 
-pub fn decompress_reader<I>(
-    reader: &mut I,
-    expected_size: Option<usize>,
-) -> Result<Vec<u8>, crate::Error>
+pub fn decompress<I>(reader: &mut I, expected_size: Option<usize>) -> Result<Vec<u8>, crate::Error>
 where
     I: Read + Seek,
 {
