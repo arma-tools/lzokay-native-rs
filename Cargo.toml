@@ -1,8 +1,12 @@
 [package]
-name = "lzokay-rust-native"
+name = "lzokay-native"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+description = "A pure rust implementation of lzookay."
+repository = "https://github.com/arma-tools/lzokay-native-rs/"
+categories = ["compression", "algorithms"]
+keywords = ["lzokay", "lzo", "native", "compress", "decompress"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
