@@ -188,3 +188,9 @@ where
 
     Ok(result)
 }
+
+pub fn decompress_all(data: &[u8], expected_size: Option<usize>) -> Result<Vec<u8>, crate::Error> {
+    let mut data_reader = std::io::Cursor::new(data);
+
+    decompress(&mut data_reader, expected_size)
+}
