@@ -244,7 +244,7 @@ impl Dict {
         }
     }
 
-    unsafe fn init(&mut self, mut s: &mut State, src: *const u8, src_size: usize) {
+    unsafe fn init(&mut self, s: &mut State, src: *const u8, src_size: usize) {
         s.cycle1_countdown = 0xbfff_u32;
         self.match3.init();
         self.match2.init();
@@ -276,7 +276,7 @@ impl Dict {
             );
         };
     }
-    unsafe fn reset_next_input_entry(&mut self, mut s: &mut State) {
+    unsafe fn reset_next_input_entry(&mut self, s: &mut State) {
         /* Remove match from about-to-be-clobbered buffer entry */
         if s.cycle1_countdown == 0 {
             self.match3.remove(s.wind_e, self.buffer.as_mut_ptr());
@@ -287,7 +287,7 @@ impl Dict {
     }
     unsafe fn advance(
         &mut self,
-        mut s: &mut State,
+        s: &mut State,
         lb_off: *mut u32,
         lb_len: *mut u32,
         best_off: *mut u32,
