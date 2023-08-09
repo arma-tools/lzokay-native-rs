@@ -19,9 +19,9 @@ mod tests {
     #[cfg(any(feature = "decompress", feature = "compress"))]
     use sha1::Sha1;
 
-    #[allow(dead_code)]
-    //#[test] // uncomment to generate compressed test files
-    fn test_comp_uncomp() {
+    #[test]
+    #[ignore]
+    fn generated_test_data() {
         let files = fs::read_dir("./test-data/uncompressed").unwrap();
 
         let mut lzo = minilzo_rs::LZO::init().unwrap();
