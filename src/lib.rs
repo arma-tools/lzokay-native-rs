@@ -12,10 +12,14 @@
 #![allow(clippy::cast_sign_loss)]
 
 #[cfg(feature = "compress")]
-pub mod compress;
+mod compress;
+#[cfg(feature = "compress")]
+pub use compress::*;
 
 #[cfg(feature = "decompress")]
-pub mod decompress;
+mod decompress;
+#[cfg(feature = "decompress")]
+pub use decompress::*;
 
 mod util;
 
