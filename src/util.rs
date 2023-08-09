@@ -1,14 +1,13 @@
 use std::io::{self, Read, Seek, SeekFrom};
 
 use byteorder::ReadBytesExt;
-use thiserror::Error;
 
-#[derive(Error, Debug)]
-pub enum LzokayError {
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
     #[error("Input was not consumed")]
     InputNotConsumed,
-    #[error("Error")]
-    Error,
+    #[error("Unknown Error")]
+    Unknown,
     #[error("Input overrun")]
     InputOverrun,
     #[error("Output overrun")]
@@ -54,7 +53,7 @@ where
     Ok(buf)
 }
 
-pub(crate) fn consume_zero_byte_length_stream<I>(reader: &mut I) -> Result<u64, LzokayError>
+pub(crate) fn consume_zero_byte_length_stream<I>(reader: &mut I) -> Result<u64, crate::Error>
 where
     I: Read + Seek,
 {

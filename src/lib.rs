@@ -2,6 +2,8 @@ pub mod compress;
 pub mod decompress;
 pub mod util;
 
+pub use util::Error;
+
 #[cfg(test)]
 mod tests {
     use std::{fs, io::Cursor};

@@ -3,20 +3,23 @@ use std::{
     ptr::null,
 };
 
-use crate::util::{
-    LzokayError, M1_MARKER, M1_MAX_OFFSET, M2_MAX_LEN, M2_MAX_OFFSET, M2_MIN_LEN, M3_MARKER,
-    M3_MAX_LEN, M3_MAX_OFFSET, M4_MARKER, M4_MAX_LEN,
+use crate::{
+    util::{
+        M1_MARKER, M1_MAX_OFFSET, M2_MAX_LEN, M2_MAX_OFFSET, M2_MIN_LEN, M3_MARKER, M3_MAX_LEN,
+        M3_MAX_OFFSET, M4_MARKER, M4_MAX_LEN,
+    },
+    Error,
 };
 
 pub fn compress_worst_size(s: usize) -> usize {
     s + s / 16 + 64 + 3
 }
 
-pub fn compress(src: &[u8]) -> Result<Vec<u8>, LzokayError> {
+pub fn compress(src: &[u8]) -> Result<Vec<u8>, crate::Error> {
     compress_with_dict(src, &mut Dict::new())
 }
 
-pub fn compress_with_dict(src: &[u8], dict: &mut Dict) -> Result<Vec<u8>, LzokayError> {
+pub fn compress_with_dict(src: &[u8], dict: &mut Dict) -> Result<Vec<u8>, crate::Error> {
     if src.is_empty() {
         return Ok(Vec::new());
     }
@@ -428,12 +431,12 @@ unsafe fn encode_literal_run(
     dst_size: *mut usize,
     lit_ptr: *const u8,
     lit_len: u32,
-) -> Result<(), LzokayError> {
+) -> Result<(), Error> {
     let mut outp: *mut u8 = *outpp;
     if outp == dst as *mut u8 && lit_len <= 238 {
         if outp.offset(1) > outp_end as *mut u8 {
             *dst_size = outp.offset_from(dst) as usize;
-            return Err(LzokayError::OutputOverrun);
+            return Err(Error::OutputOverrun);
         }
         *outp = 17u32.wrapping_add(lit_len) as u8;
         outp = outp.offset(1);
@@ -442,7 +445,7 @@ unsafe fn encode_literal_run(
     } else if lit_len <= 18 {
         if outp.offset(1) > outp_end as *mut u8 {
             *dst_size = outp.offset_from(dst) as usize;
-            return Err(LzokayError::OutputOverrun);
+            return Err(Error::OutputOverrun);
         }
         *outp = lit_len.wrapping_sub(3) as u8;
         outp = outp.offset(1);
@@ -451,7 +454,7 @@ unsafe fn encode_literal_run(
             > outp_end as *mut u8
         {
             *dst_size = outp.offset_from(dst) as usize;
-            return Err(LzokayError::OutputOverrun);
+            return Err(Error::OutputOverrun);
         }
         *outp = 0;
         outp = outp.offset(1);
@@ -466,7 +469,7 @@ unsafe fn encode_literal_run(
     }
     if outp.offset(lit_len as isize) > outp_end as *mut u8 {
         *dst_size = outp.offset_from(dst) as usize;
-        return Err(LzokayError::OutputOverrun);
+        return Err(Error::OutputOverrun);
     }
     copy_nonoverlapping(lit_ptr, outp, lit_len as usize);
 
@@ -482,13 +485,13 @@ unsafe fn encode_lookback_match(
     mut lb_len: u32,
     mut lb_off: u32,
     last_lit_len: u32,
-) -> Result<(), LzokayError> {
+) -> Result<(), Error> {
     let mut outp: *mut u8 = *outpp;
     if lb_len == 2 {
         lb_off = lb_off.wrapping_sub(1);
         if outp.offset(2) > outp_end as *mut u8 {
             *dst_size = outp.offset_from(dst) as usize;
-            return Err(LzokayError::OutputOverrun);
+            return Err(Error::OutputOverrun);
         }
         *outp = (M1_MARKER | ((lb_off & 0x3) << 2)) as u8;
         outp = outp.offset(1);
@@ -498,7 +501,7 @@ unsafe fn encode_lookback_match(
         lb_off = lb_off.wrapping_sub(1);
         if outp.offset(2) > outp_end as *mut u8 {
             *dst_size = outp.offset_from(dst) as usize;
-            return Err(LzokayError::OutputOverrun);
+            return Err(Error::OutputOverrun);
         }
         *outp = (lb_len.wrapping_sub(1) << 5 | ((lb_off & 0x7) << 2)) as u8;
         outp = outp.offset(1);
@@ -511,7 +514,7 @@ unsafe fn encode_lookback_match(
         lb_off = lb_off.wrapping_sub(1_u32.wrapping_add(M2_MAX_OFFSET));
         if outp.offset(2) > outp_end as *mut u8 {
             *dst_size = outp.offset_from(dst) as usize;
-            return Err(LzokayError::OutputOverrun);
+            return Err(Error::OutputOverrun);
         }
         *outp = (M1_MARKER | ((lb_off & 0x3) << 2)) as u8;
         outp = outp.offset(1);
@@ -522,7 +525,7 @@ unsafe fn encode_lookback_match(
         if lb_len <= M3_MAX_LEN {
             if outp.offset(1) > outp_end as *mut u8 {
                 *dst_size = outp.offset_from(dst) as usize;
-                return Err(LzokayError::OutputOverrun);
+                return Err(Error::OutputOverrun);
             }
             *outp = (M3_MARKER | lb_len.wrapping_sub(2)) as u8;
             outp = outp.offset(1);
@@ -531,7 +534,7 @@ unsafe fn encode_lookback_match(
             if outp.offset(lb_len.wrapping_div(255).wrapping_add(2) as isize) > outp_end as *mut u8
             {
                 *dst_size = outp.offset_from(dst) as usize;
-                return Err(LzokayError::OutputOverrun);
+                return Err(Error::OutputOverrun);
             }
             *outp = M3_MARKER as u8;
             outp = outp.offset(1);
@@ -546,7 +549,7 @@ unsafe fn encode_lookback_match(
         }
         if outp.offset(2) > outp_end as *mut u8 {
             *dst_size = outp.offset_from(dst) as usize;
-            return Err(LzokayError::OutputOverrun);
+            return Err(Error::OutputOverrun);
         }
         *outp = (lb_off << 2) as u8;
         outp = outp.offset(1);
@@ -557,7 +560,7 @@ unsafe fn encode_lookback_match(
         if lb_len <= M4_MAX_LEN {
             if outp.offset(1) > outp_end as *mut u8 {
                 *dst_size = outp.offset_from(dst) as usize;
-                return Err(LzokayError::OutputOverrun);
+                return Err(Error::OutputOverrun);
             }
             *outp = (M4_MARKER | ((lb_off & 0x4000) >> 11) | lb_len.wrapping_sub(2)) as u8;
             outp = outp.offset(1);
@@ -566,7 +569,7 @@ unsafe fn encode_lookback_match(
             if outp.offset(lb_len.wrapping_div(255).wrapping_add(2) as isize) > outp_end as *mut u8
             {
                 *dst_size = outp.offset_from(dst) as usize;
-                return Err(LzokayError::OutputOverrun);
+                return Err(Error::OutputOverrun);
             }
             *outp = (M4_MARKER | ((lb_off & 0x4000) >> 11)) as u8;
             outp = outp.offset(1);
@@ -581,7 +584,7 @@ unsafe fn encode_lookback_match(
         }
         if outp.offset(2) > outp_end as *mut u8 {
             *dst_size = outp.offset_from(dst) as usize;
-            return Err(LzokayError::OutputOverrun);
+            return Err(Error::OutputOverrun);
         }
         *outp = (lb_off << 2) as u8;
         outp = outp.offset(1);
@@ -599,8 +602,8 @@ unsafe fn lzokay_compress_dict(
     init_dst_size: usize,
     dst_size: *mut usize,
     dict_storage: &mut Dict,
-) -> Result<(), LzokayError> {
-    //let mut err: Result<(), LzokayError> = Ok(());
+) -> Result<(), Error> {
+    //let mut err: Result<(), Error> = Ok(());
     let mut s: State = State::new();
     *dst_size = init_dst_size;
     let mut outp: *mut u8 = dst;
@@ -675,7 +678,7 @@ unsafe fn lzokay_compress_dict(
     /* Terminating M4 */
     if outp.offset(3) > outp_end {
         *dst_size = outp.offset_from(dst) as usize;
-        return Err(LzokayError::OutputOverrun);
+        return Err(Error::OutputOverrun);
     }
     *outp = (M4_MARKER | 1) as u8;
     outp = outp.offset(1);
