@@ -17,11 +17,8 @@ pub enum Error {
     #[error("Lookbehind Overrun")]
     LookbehindOverrun,
 
-    #[error("read or write failed, source: {source}")]
-    IOError {
-        #[from]
-        source: std::io::Error,
-    },
+    #[error("read or write failed, source: {0}")]
+    IOError(#[from] std::io::Error),
 }
 
 // pub(crate) static mut MAX_255_COUNT: usize = ((!0) as usize / 255 - 2) as usize;
