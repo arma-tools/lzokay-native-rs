@@ -1,3 +1,67 @@
+//! # LZ👌in Rust
+//!
+//! A pure rust port of [lzokay](https://github.com/jackoalan/lzokay), which is a C++ implementation of the [LZO compression format](http://www.oberhumer.com/opensource/lzo/).
+//!
+//! ## Examples
+//!
+//! ### Compressing raw data
+//! ```rust
+//! use std::fs::File;
+//!
+//! fn main () -> Result<(), lzokay_native::Error> {
+//!     let data = include_bytes!("../test-data/uncompressed/alice29.txt");
+//!     let compressed = lzokay_native::compress(data);
+//!
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ### Multiple compressions without repeated (de-)allocations
+//! By using a [`Dict`] and [`compress_with_dict`] you can avoid repeat allocation/deallocation
+//! of the work memory used by the compressor:
+//!
+//! ```rust
+//! use std::fs::File;
+//!
+//! fn main () -> Result<(), lzokay_native::Error> {
+//!     let mut dict = lzokay_native::Dict::new();
+//!
+//!     let data1 = include_bytes!("../test-data/uncompressed/alice29.txt");
+//!     let compressed1 = lzokay_native::compress_with_dict(data1, &mut dict)?;
+//!
+//!     let data2 = include_bytes!("../test-data/uncompressed/asyoulik.txt");
+//!     let compressed2 = lzokay_native::compress_with_dict(data2, &mut dict)?;
+//!     
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ### Decompressing a file
+//! ```rust
+//! use std::fs::File;
+//!
+//! fn main () -> Result<(), lzokay_native::Error> {
+//!     let file_path = "./test-data/compressed/fields.c.lzo";
+//!     
+//!     let mut file = File::open(file_path)?; // file implements std::io::Read
+//!     let decompressed = lzokay_native::decompress(&mut file, None);
+//!
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ### Decompressing raw data
+//! ```rust
+//! use std::fs::File;
+//!
+//! fn main () -> Result<(), lzokay_native::Error> {
+//!     let data = include_bytes!("../test-data/compressed/fields.c.lzo");
+//!     let decompressed = lzokay_native::decompress_all(data, None);
+//!
+//!     Ok(())
+//! }
+//! ```
+
 #![warn(missing_docs)]
 #![warn(clippy::cargo)]
 #![warn(clippy::pedantic)]
