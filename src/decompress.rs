@@ -23,8 +23,7 @@ where
          *           skip byte
          */
         let len: usize = (reader.read_u8()? - 17) as usize;
-        let written = result.write(&read_bytes(reader, len)?)?;
-        assert!(written == len);
+        result.write_all(&read_bytes(reader, len)?)?;
         state = 4;
     } else if peek_u8(reader)? >= 18 {
         /* 18..21 : copy 0..3 literals
@@ -33,8 +32,7 @@ where
          */
         n_state = (reader.read_u8()? - 17) as usize;
         state = n_state;
-        let written = result.write(&read_bytes(reader, n_state)?)?;
-        assert!(written == n_state);
+        result.write_all(&read_bytes(reader, n_state)?)?;
     }
     loop
     /* 0..17 : follow regular instruction encoding, see below. It is worth
@@ -125,8 +123,7 @@ where
                 len += (offset * 255 + 15 + u64::from(reader.read_u8()?)) as usize;
             }
             /* copy_literal_run */
-            let written = result.write(&read_bytes(reader, len)?)?;
-            assert!(written == len);
+            result.write_all(&read_bytes(reader, len)?)?;
             state = 4;
             continue;
         } else if state != 4 {
@@ -177,14 +174,15 @@ where
 
         /* Copy literal */
 
-        let written = result.write(&read_bytes(reader, n_state)?)?;
-        assert!(written == n_state);
+        result.write_all(&read_bytes(reader, n_state)?)?;
     }
     // *dst_size = outp.offset_from(dst) as usize;
     if lblen != 3 {
         /* Ensure terminating M4 was encountered */
         return Err(crate::Error::Unknown);
     }
+
+    result.flush()?;
 
     Ok(result)
 }
