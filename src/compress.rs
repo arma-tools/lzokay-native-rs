@@ -31,14 +31,10 @@ pub fn compress_with_dict(data: &[u8], dict: &mut Dict) -> Result<Vec<u8>, crate
         let src_buf = std::ptr::addr_of!(data[0]);
         let dst_buf = dst.as_mut_ptr();
         let mut size: usize = 0;
-        let res = lzokay_compress_dict(src_buf, data.len(), dst_buf, worst, &mut size, dict);
+        lzokay_compress_dict(src_buf, data.len(), dst_buf, worst, &mut size, dict)?;
 
-        if let Err(err) = res {
-            Err(err)
-        } else {
-            dst.set_len(size);
-            Ok(dst)
-        }
+        dst.set_len(size);
+        Ok(dst)
     }
 }
 #[derive(Debug, PartialEq, Eq, Clone)]
