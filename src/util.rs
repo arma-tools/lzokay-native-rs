@@ -6,16 +6,10 @@ use byteorder::ReadBytesExt;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Input was not consumed")]
-    InputNotConsumed,
     #[error("Unknown Error")]
     Unknown,
-    #[error("Input overrun")]
-    InputOverrun,
     #[error("Output overrun")]
     OutputOverrun,
-    #[error("Lookbehind Overrun")]
-    LookbehindOverrun,
 
     #[error("read or write failed, source: {0}")]
     IOError(#[from] std::io::Error),
