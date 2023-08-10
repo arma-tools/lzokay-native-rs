@@ -12,26 +12,26 @@ use crate::{
 };
 
 #[must_use]
-pub const fn compress_worst_size(s: usize) -> usize {
-    s + s / 16 + 64 + 3
+pub const fn compress_worst_size(uncompressed_size: usize) -> usize {
+    uncompressed_size + uncompressed_size / 16 + 64 + 3
 }
 
-pub fn compress(src: &[u8]) -> Result<Vec<u8>, crate::Error> {
-    compress_with_dict(src, &mut Dict::new())
+pub fn compress(data: &[u8]) -> Result<Vec<u8>, crate::Error> {
+    compress_with_dict(data, &mut Dict::new())
 }
 
-pub fn compress_with_dict(src: &[u8], dict: &mut Dict) -> Result<Vec<u8>, crate::Error> {
-    if src.is_empty() {
+pub fn compress_with_dict(data: &[u8], dict: &mut Dict) -> Result<Vec<u8>, crate::Error> {
+    if data.is_empty() {
         return Ok(Vec::new());
     }
 
-    let worst = compress_worst_size(src.len());
+    let worst = compress_worst_size(data.len());
     let mut dst = Vec::with_capacity(worst);
     unsafe {
-        let src_buf = std::ptr::addr_of!(src[0]);
+        let src_buf = std::ptr::addr_of!(data[0]);
         let dst_buf = dst.as_mut_ptr();
         let mut size: usize = 0;
-        let res = lzokay_compress_dict(src_buf, src.len(), dst_buf, worst, &mut size, dict);
+        let res = lzokay_compress_dict(src_buf, data.len(), dst_buf, worst, &mut size, dict);
 
         if let Err(err) = res {
             Err(err)
