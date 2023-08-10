@@ -4,13 +4,18 @@ use std::io::{self, Read, Seek, SeekFrom};
 #[cfg(feature = "decompress")]
 use byteorder::ReadBytesExt;
 
+/// The various errors that can be reported by this crate.
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    /// Unknown error
     #[error("Unknown Error")]
     Unknown,
+
+    /// Output overrun
     #[error("Output overrun")]
     OutputOverrun,
 
+    /// IOError
     #[error("read or write failed, source: {0}")]
     IOError(#[from] std::io::Error),
 }
