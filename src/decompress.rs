@@ -4,6 +4,24 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::util::{consume_zero_byte_length_stream, peek_u8, read_bytes, M3_MARKER, M4_MARKER};
 
+/// Decompresses a lzo-compressed reader and returns the result as a new [`Vec<u8>`].
+///
+/// # Arguments
+/// * `reader` - Reader with compressed data
+/// * `expected_size` - Expected size of output. This is used to allocate the right amount of memory from the start.
+///
+/// # Errors
+/// Will return [`Err`] if there was any kind of I/O error while reading from `reader` or if an unexpected byte is encountered.
+///
+/// # Example
+/// ```rust
+/// # use std::fs::File;
+/// # let file_path = "./test-data/compressed/fields.c.lzo";
+/// let mut file = File::open(file_path).unwrap(); // file implements std::io::Read
+///
+/// let decompressed = lzokay_native::decompress(&mut file, None);
+/// ```
+///
 pub fn decompress<I>(reader: &mut I, expected_size: Option<usize>) -> Result<Vec<u8>, crate::Error>
 where
     I: Read + Seek,
@@ -187,6 +205,22 @@ where
     Ok(result)
 }
 
+/// Decompresses a byte slice and returns the result as a new [`Vec<u8>`].
+///
+/// # Arguments
+/// * `data` - Data to decompress
+/// * `expected_size` - Expected size of output. This is used to allocate the right amount of memory from the start.
+///
+/// # Errors
+/// See [`decompress`] for details on possible errors.
+///
+/// # Exmaple
+/// ```rust
+/// let data = include_bytes!("../test-data/compressed/fields.c.lzo");
+///
+/// let decompressed = lzokay_native::decompress_all(data, None);
+/// ```
+///
 pub fn decompress_all(data: &[u8], expected_size: Option<usize>) -> Result<Vec<u8>, crate::Error> {
     let mut data_reader = std::io::Cursor::new(data);
 
