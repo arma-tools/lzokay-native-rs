@@ -42,7 +42,7 @@ pub fn compress_with_dict(src: &[u8], dict: &mut Dict) -> Result<Vec<u8>, crate:
     }
 }
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Match3 {
+struct Match3 {
     pub head: Vec<u16>,
     pub chain_sz: Vec<u16>,
     pub chain: Vec<u16>,
@@ -51,18 +51,18 @@ pub struct Match3 {
 /* chain-pos -> best-match-length */
 /* Encoding of 2-byte data matches */
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Match2 {
+struct Match2 {
     pub head: Vec<u16>,
 }
 /* 2-byte-data -> head-pos */
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dict {
-    pub match3: Match3,
-    pub match2: Match2,
-    pub buffer: Vec<u8>, //: vec![0u8; 53247],
+    match3: Match3,
+    match2: Match2,
+    buffer: Vec<u8>, //: vec![0u8; 53247],
 }
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct State {
+struct State {
     pub src: *const u8,
     pub src_end: *const u8,
     pub inp: *const u8,
