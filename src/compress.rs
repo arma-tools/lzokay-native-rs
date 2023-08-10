@@ -11,15 +11,63 @@ use crate::{
     Error,
 };
 
+/// Returns the worst (maximum) size of the compressed data when compressing
+/// data of a given size.
+///
+/// # Arguments
+/// * `uncompressed_size` - Size of uncompressed data
+///
 #[must_use]
 pub const fn compress_worst_size(uncompressed_size: usize) -> usize {
     uncompressed_size + uncompressed_size / 16 + 64 + 3
 }
 
+/// Compresses a byte slice and returns the result as a new [`Vec<u8>`].
+///
+/// Use [`compress_with_dict`] together with [`Dict`] to avoid repeated
+/// allocations / deallocations across multiple compression runs.
+///
+/// # Arguments
+/// * `data` - Data to compress
+///
+/// # Errors
+/// Will return [`Err`] if compression fails.
+///
+/// # Example
+/// ```rust
+/// let data = include_bytes!("../test-data/uncompressed/alice29.txt");
+/// let compressed = lzokay_native::compress(data).unwrap();
+/// ```
+///
 pub fn compress(data: &[u8]) -> Result<Vec<u8>, crate::Error> {
     compress_with_dict(data, &mut Dict::new())
 }
 
+/// Compresses a byte slice and returns the result as a new [`Vec<u8>`].
+///
+/// This function differs from [`compress`] in that it accepts an additional
+/// [`Dict`] argument that can be used across multiple compression runs to
+/// avoid repeated allocation or deallocation of memory used by the compressor.
+///
+/// # Arguments
+/// * `data` - Data to compress
+/// * `dict` - Data structure to to store data in
+///
+/// # Errors
+/// See [`compress`] for details on possible errors.
+///
+/// # Example
+/// ```rust
+/// let mut dict = lzokay_native::Dict::new();
+///
+/// let data1 = include_bytes!("../test-data/uncompressed/alice29.txt");
+/// let compressed1 = lzokay_native::compress_with_dict(data1, &mut dict).unwrap();
+///
+/// let data2 = include_bytes!("../test-data/uncompressed/asyoulik.txt");
+/// let compressed2 = lzokay_native::compress_with_dict(data2, &mut dict).unwrap();
+///
+/// ```
+///
 pub fn compress_with_dict(data: &[u8], dict: &mut Dict) -> Result<Vec<u8>, crate::Error> {
     if data.is_empty() {
         return Ok(Vec::new());
@@ -51,6 +99,11 @@ struct Match2 {
     pub head: Vec<u16>,
 }
 /* 2-byte-data -> head-pos */
+
+/// A `Dict` can be used to across multiple compression runs; avoiding repeat
+/// allocation/deallocation of the work memory used by the compressor.
+///
+/// see [`compress_with_dict`]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dict {
     match3: Match3,
@@ -225,6 +278,7 @@ impl Match2 {
 
 impl Dict {
     #[must_use]
+    /// Constructs a new, empty Dict.
     pub fn new() -> Self {
         Self {
             match3: Match3 {
