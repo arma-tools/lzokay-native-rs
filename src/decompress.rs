@@ -8,7 +8,7 @@ use crate::util::{consume_zero_byte_length_stream, peek_u8, read_bytes, M3_MARKE
 ///
 /// # Arguments
 /// * `reader` - Reader with compressed data
-/// * `expected_size` - Expected size of output. This is used to allocate the right amount of memory from the start.
+/// * `expected_size` - Expected size of output. This is used as an allocation hint.
 ///
 /// # Errors
 /// Will return [`Err`] if there was any kind of I/O error while reading from `reader` or if an unexpected byte is encountered.
@@ -23,6 +23,74 @@ use crate::util::{consume_zero_byte_length_stream, peek_u8, read_bytes, M3_MARKE
 /// ```
 ///
 pub fn decompress<I>(reader: &mut I, expected_size: Option<usize>) -> Result<Vec<u8>, crate::Error>
+where
+    I: Read + Seek,
+{
+    decompress_inner(reader, expected_size, None)
+}
+
+/// Decompresses a lzo-compressed reader and returns the result as a new [`Vec<u8>`].
+///
+/// This function fails with [`Error::OutputOverrun`](crate::Error::OutputOverrun)
+/// if the decompressed output would exceed `max_size`.
+///
+/// # Arguments
+/// * `reader` - Reader with compressed data
+/// * `max_size` - Maximum allowed size of output
+///
+/// # Errors
+/// See [`decompress`] for details on possible errors.
+///
+/// # Example
+/// ```rust
+/// # use std::fs::File;
+/// # let file_path = "./test-data/compressed/fields.c.lzo";
+/// let mut file = File::open(file_path).unwrap(); // file implements std::io::Read
+///
+/// let decompressed = lzokay_native::decompress_bounded(&mut file, 11_150);
+/// ```
+///
+pub fn decompress_bounded<I>(reader: &mut I, max_size: usize) -> Result<Vec<u8>, crate::Error>
+where
+    I: Read + Seek,
+{
+    decompress_inner(reader, None, Some(max_size))
+}
+
+const fn ensure_output_size(
+    current_size: usize,
+    additional_size: usize,
+    max_size: Option<usize>,
+) -> Result<(), crate::Error> {
+    if let Some(max_size) = max_size {
+        match current_size.checked_add(additional_size) {
+            Some(next_size) if next_size <= max_size => {}
+            _ => return Err(crate::Error::OutputOverrun),
+        }
+    }
+
+    Ok(())
+}
+
+fn write_read_bytes<I>(
+    reader: &mut I,
+    result: &mut Vec<u8>,
+    len: usize,
+    max_size: Option<usize>,
+) -> Result<(), crate::Error>
+where
+    I: Read + Seek,
+{
+    ensure_output_size(result.len(), len, max_size)?;
+    result.write_all(&read_bytes(reader, len)?)?;
+    Ok(())
+}
+
+fn decompress_inner<I>(
+    reader: &mut I,
+    expected_size: Option<usize>,
+    max_size: Option<usize>,
+) -> Result<Vec<u8>, crate::Error>
 where
     I: Read + Seek,
 {
@@ -41,7 +109,7 @@ where
          *           skip byte
          */
         let len: usize = (reader.read_u8()? - 17) as usize;
-        result.write_all(&read_bytes(reader, len)?)?;
+        write_read_bytes(reader, &mut result, len, max_size)?;
         state = 4;
     } else if peek_u8(reader)? >= 18 {
         /* 18..21 : copy 0..3 literals
@@ -50,7 +118,7 @@ where
          */
         n_state = (reader.read_u8()? - 17) as usize;
         state = n_state;
-        result.write_all(&read_bytes(reader, n_state)?)?;
+        write_read_bytes(reader, &mut result, n_state, max_size)?;
     }
     loop
     /* 0..17 : follow regular instruction encoding, see below. It is worth
@@ -141,7 +209,7 @@ where
                 len += (offset * 255 + 15 + u64::from(reader.read_u8()?)) as usize;
             }
             /* copy_literal_run */
-            result.write_all(&read_bytes(reader, len)?)?;
+            write_read_bytes(reader, &mut result, len, max_size)?;
             state = 4;
             continue;
         } else if state != 4 {
@@ -183,6 +251,7 @@ where
             lblen = 3;
         }
 
+        ensure_output_size(result.len(), lblen, max_size)?;
         for i in 0..lblen {
             let val = result[lbcur as usize + i];
             result.write_u8(val)?;
@@ -192,7 +261,7 @@ where
 
         /* Copy literal */
 
-        result.write_all(&read_bytes(reader, n_state)?)?;
+        write_read_bytes(reader, &mut result, n_state, max_size)?;
     }
     // *dst_size = outp.offset_from(dst) as usize;
     if lblen != 3 {
@@ -209,12 +278,12 @@ where
 ///
 /// # Arguments
 /// * `data` - Data to decompress
-/// * `expected_size` - Expected size of output. This is used to allocate the right amount of memory from the start.
+/// * `expected_size` - Expected size of output. This is used as an allocation hint.
 ///
 /// # Errors
 /// See [`decompress`] for details on possible errors.
 ///
-/// # Exmaple
+/// # Example
 /// ```rust
 /// let data = include_bytes!("../test-data/compressed/fields.c.lzo");
 ///
@@ -225,4 +294,29 @@ pub fn decompress_all(data: &[u8], expected_size: Option<usize>) -> Result<Vec<u
     let mut data_reader = std::io::Cursor::new(data);
 
     decompress(&mut data_reader, expected_size)
+}
+
+/// Decompresses a byte slice and returns the result as a new [`Vec<u8>`].
+///
+/// This function fails with [`Error::OutputOverrun`](crate::Error::OutputOverrun)
+/// if the decompressed output would exceed `max_size`.
+///
+/// # Arguments
+/// * `data` - Data to decompress
+/// * `max_size` - Maximum allowed size of output
+///
+/// # Errors
+/// See [`decompress_bounded`] for details on possible errors.
+///
+/// # Example
+/// ```rust
+/// let data = include_bytes!("../test-data/compressed/fields.c.lzo");
+///
+/// let decompressed = lzokay_native::decompress_all_bounded(data, 11_150);
+/// ```
+///
+pub fn decompress_all_bounded(data: &[u8], max_size: usize) -> Result<Vec<u8>, crate::Error> {
+    let mut data_reader = std::io::Cursor::new(data);
+
+    decompress_bounded(&mut data_reader, max_size)
 }
