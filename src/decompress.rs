@@ -4,6 +4,9 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::util::{M3_MARKER, M4_MARKER, consume_zero_byte_length_stream, peek_u8, read_bytes};
 
+/// Most bytes reserved up front for the output, whatever size the caller expects.
+const MAX_INITIAL_CAPACITY: usize = 1 << 20;
+
 /// Decompresses a lzo-compressed reader and returns the result as a new [`Vec<u8>`].
 ///
 /// # Arguments
@@ -94,9 +97,15 @@ fn decompress_inner<I>(
 where
     I: Read + Seek,
 {
-    let mut result = Vec::<u8>::with_capacity(expected_size.unwrap_or_default());
+    // A hint only: a corrupt or hostile size must not allocate more than the input can produce.
+    let mut result = Vec::<u8>::with_capacity(
+        expected_size
+            .unwrap_or_default()
+            .min(max_size.unwrap_or(usize::MAX))
+            .min(MAX_INITIAL_CAPACITY),
+    );
 
-    let mut lbcur: u64;
+    let mut distance: usize;
     let mut lblen: usize;
     let mut state: usize = 0;
     let mut n_state: usize;
@@ -144,10 +153,7 @@ where
              * Always followed by exactly one byte : H H H H H H H H
              *   distance = (H << 3) + D + 1
              */
-            lbcur = result.len() as u64
-                - u64::from(
-                    (u32::from(reader.read_u8()?) << 3) + ((u32::from(inst) >> 2) & 0x7) + 1,
-                );
+            distance = (usize::from(reader.read_u8()?) << 3) + ((usize::from(inst) >> 2) & 0x7) + 1;
             lblen = ((inst >> 5) as usize) + 1;
             n_state = (inst & 0x3) as usize;
         } else if (u32::from(inst) & M3_MARKER) != 0 {
@@ -165,7 +171,7 @@ where
                 lblen += (offset * 255 + 31 + u64::from(reader.read_u8()?)) as usize;
             }
             n_state = reader.read_u16::<LittleEndian>()? as usize;
-            lbcur = result.len() as u64 - ((n_state >> 2).wrapping_add(1) as u64);
+            distance = (n_state >> 2) + 1;
             n_state &= 0x3;
         } else if u32::from(inst) & M4_MARKER != 0 {
             /* [M4]
@@ -184,15 +190,13 @@ where
             }
             n_state = reader.read_u16::<LittleEndian>()? as usize;
 
-            lbcur = (result.len() as u64).wrapping_sub(
-                ((i32::from(inst & 0x8) << 11) as u64).wrapping_add((n_state >> 2_usize) as u64),
-            );
+            distance = (usize::from(inst & 0x8) << 11) + (n_state >> 2);
 
             n_state &= 0x3;
-            if lbcur == result.len() as u64 {
+            if distance == 0 {
                 break;
             }
-            lbcur -= 16384;
+            distance += 16384;
         } else if state == 0 {
             /* [M1] Depends on the number of literals copied by the last instruction. */
             /* If last instruction did not copy any literal (state == 0), this
@@ -228,10 +232,7 @@ where
              */
             n_state = (u32::from(inst) & 0x3) as usize;
 
-            lbcur = (result.len() as u64).wrapping_sub(u64::from(
-                (u32::from(inst) >> 2)
-                    .wrapping_add((u32::from(reader.read_u8()?) << 2).wrapping_add(1)),
-            ));
+            distance = (usize::from(inst) >> 2) + (usize::from(reader.read_u8()?) << 2) + 1;
             lblen = 2;
         } else {
             /* If last instruction used to copy 4 or more literals (as detected by
@@ -245,15 +246,17 @@ where
              *    distance = (H << 2) + D + 2049
              */
             n_state = (inst & 0x3) as usize;
-            lbcur = (result.len() as u64)
-                - (((u32::from(inst) >> 2) + (u32::from(reader.read_u8()?) << 2) + 2049) as isize)
-                    as u64;
+            distance = (usize::from(inst) >> 2) + (usize::from(reader.read_u8()?) << 2) + 2049;
             lblen = 3;
         }
 
+        let lbcur = result
+            .len()
+            .checked_sub(distance)
+            .ok_or(crate::Error::LookbehindOverrun)?;
         ensure_output_size(result.len(), lblen, max_size)?;
         for i in 0..lblen {
-            let val = result[lbcur as usize + i];
+            let val = result[lbcur + i];
             result.write_u8(val)?;
         }
 
