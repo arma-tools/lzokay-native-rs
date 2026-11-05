@@ -2,7 +2,7 @@ use std::io::{Read, Seek, Write};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::util::{consume_zero_byte_length_stream, peek_u8, read_bytes, M3_MARKER, M4_MARKER};
+use crate::util::{M3_MARKER, M4_MARKER, consume_zero_byte_length_stream, peek_u8, read_bytes};
 
 /// Decompresses a lzo-compressed reader and returns the result as a new [`Vec<u8>`].
 ///

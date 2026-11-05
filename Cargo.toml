@@ -1,7 +1,8 @@
 [package]
 name = "lzokay-native"
 version = "0.1.1"
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 license = "MIT"
 description = "A pure rust port of lzookay."
 repository = "https://github.com/arma-tools/lzokay-native-rs/"

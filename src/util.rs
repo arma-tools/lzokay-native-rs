@@ -15,7 +15,7 @@ pub enum Error {
     #[error("Output overrun")]
     OutputOverrun,
 
-    /// IOError
+    /// `IOError`
     #[error("read or write failed, source: {0}")]
     IOError(#[from] std::io::Error),
 }
