@@ -1,7 +1,4 @@
-use std::{
-    intrinsics::{copy_nonoverlapping, write_bytes},
-    ptr::null,
-};
+use std::ptr::{copy_nonoverlapping, null, write_bytes};
 
 use crate::{
     util::{

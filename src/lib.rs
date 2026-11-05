@@ -179,6 +179,21 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "decompress")]
+    #[test]
+    fn decompress_all_bounded_checks_output_size() {
+        let compressed = fs::read("./test-data/compressed/fields.c.lzo").unwrap();
+        let uncompressed = fs::read("./test-data/uncompressed/fields.c").unwrap();
+
+        let decompressed =
+            crate::decompress::decompress_all_bounded(&compressed, uncompressed.len()).unwrap();
+        assert_eq!(decompressed, uncompressed);
+
+        let too_small = uncompressed.len() - 1;
+        let result = crate::decompress::decompress_all_bounded(&compressed, too_small);
+        assert!(matches!(result, Err(crate::Error::OutputOverrun)));
+    }
+
     #[cfg(feature = "compress")]
     #[test]
     fn check_lzo_decompress_compatibility() {
