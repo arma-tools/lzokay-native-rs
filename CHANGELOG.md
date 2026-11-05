@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `expected_size` of `Some(usize::MAX)` no longer panics with a capacity
   overflow, and large sizes are no longer allocated before reading any
   input (#3).
+- Docs build on docs.rs again: the `doc_auto_cfg` feature was removed from
+  nightly Rust in 1.92, `doc_cfg` replaces it. The 0.1.1 docs failed to build.
 
 ## [0.1.1] - 2026-11-05
 
