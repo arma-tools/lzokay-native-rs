@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-05
+
 ### Added
 - `Error::LookbehindOverrun`: returned by `decompress`, `decompress_all` and
   the bounded variants when a match reaches before the start of the output,
@@ -45,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/arma-tools/lzokay-native-rs/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/arma-tools/lzokay-native-rs/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/arma-tools/lzokay-native-rs/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/arma-tools/lzokay-native-rs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/arma-tools/lzokay-native-rs/releases/tag/v0.1.0

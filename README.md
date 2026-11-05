@@ -15,7 +15,7 @@ Add following lines to your Cargo.toml:
 ```toml
 # Cargo.toml
 [dependencies]
-lzokay-native = "0.1"
+lzokay-native = "0.2"
 ```
 
 ## Features
