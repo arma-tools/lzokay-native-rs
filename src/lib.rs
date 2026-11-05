@@ -290,4 +290,28 @@ mod tests {
             }
         }
     }
+
+    #[cfg(feature = "decompress")]
+    #[test]
+    fn decompress_stops_at_end_of_stream() {
+        use std::io::{BufReader, Read, Seek};
+
+        for name in ["fields.c", "grammar.lsp", "xargs.1", "sum"] {
+            let mut compressed = fs::read(format!("./test-data/compressed/{name}.lzo")).unwrap();
+            let uncompressed = fs::read(format!("./test-data/uncompressed/{name}")).unwrap();
+            let len = compressed.len();
+            compressed.extend_from_slice(b"after");
+
+            // A small buffer, so the stream crosses many buffer refills.
+            let mut reader = BufReader::with_capacity(16, Cursor::new(compressed));
+            let decompressed =
+                crate::decompress::decompress_bounded(&mut reader, uncompressed.len()).unwrap();
+            assert_eq!(decompressed, uncompressed, "{name}");
+            assert_eq!(reader.stream_position().unwrap() as usize, len, "{name}");
+
+            let mut rest = String::new();
+            reader.read_to_string(&mut rest).unwrap();
+            assert_eq!(rest, "after", "{name}");
+        }
+    }
 }

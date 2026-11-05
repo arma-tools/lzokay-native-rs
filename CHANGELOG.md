@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Decompression reads its input forward only, without seeking back to peek
+  at bytes. Seeking discarded the buffer of a `BufReader` on every peek, which
+  made reading through one up to 30% slower.
+- `decompress_bounded` and `decompress_all_bounded` reserve `max_size` up
+  front (at most 1 MiB) instead of growing the output from empty.
+- Literal runs are read straight into the output, without a temporary buffer.
+
 ## [0.2.0] - 2026-11-05
 
 ### Added

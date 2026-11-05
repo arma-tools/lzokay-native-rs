@@ -1,5 +1,5 @@
 #[cfg(feature = "decompress")]
-use std::io::{self, Read, Seek, SeekFrom};
+use std::io::{self, Read};
 
 #[cfg(feature = "decompress")]
 use byteorder::ReadBytesExt;
@@ -47,39 +47,33 @@ pub const M3_MARKER: u32 = 0x20;
 #[cfg(any(feature = "compress", feature = "decompress"))]
 pub const M4_MARKER: u32 = 0x10;
 
+/// Appends `size` bytes of `reader` to `out`, without a temporary buffer.
 #[cfg(feature = "decompress")]
-pub fn peek_u8<I>(reader: &mut I) -> io::Result<u8>
+pub fn read_bytes_into<I>(reader: &mut I, out: &mut Vec<u8>, size: usize) -> io::Result<()>
 where
-    I: Read + Seek,
+    I: Read,
 {
-    let pos = reader.stream_position()?;
-    let ret = reader.read_u8()?;
-    reader.seek(SeekFrom::Start(pos))?;
-    Ok(ret)
-}
-
-#[cfg(feature = "decompress")]
-pub fn read_bytes<I>(reader: &mut I, size: usize) -> io::Result<Vec<u8>>
-where
-    I: Read + Seek,
-{
-    let mut buf = vec![0u8; size];
-    reader.read_exact(&mut buf)?;
-    Ok(buf)
-}
-
-#[cfg(feature = "decompress")]
-pub fn consume_zero_byte_length_stream<I>(reader: &mut I) -> Result<u64, crate::Error>
-where
-    I: Read + Seek,
-{
-    let old_pos = reader.stream_position()?;
-
-    while peek_u8(reader)? == 0 {
-        reader.seek(SeekFrom::Current(1))?;
+    let read = reader.take(size as u64).read_to_end(out)?;
+    if read == size {
+        Ok(())
+    } else {
+        Err(io::ErrorKind::UnexpectedEof.into())
     }
+}
 
-    let offset = reader.stream_position()? - old_pos;
-
-    Ok(offset)
+/// Counts the zero bytes of a length extension and returns it with the non-zero byte after them.
+///
+/// Reads forward only: seeking back to peek discards the buffer of a `BufReader`.
+#[cfg(feature = "decompress")]
+pub fn consume_zero_byte_length_stream<I>(reader: &mut I) -> Result<(u64, u8), crate::Error>
+where
+    I: Read,
+{
+    let mut zeros = 0;
+    loop {
+        match reader.read_u8()? {
+            0 => zeros += 1,
+            byte => return Ok((zeros, byte)),
+        }
+    }
 }
