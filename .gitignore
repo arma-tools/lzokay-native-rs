@@ -1,5 +1,4 @@
 /target
-Cargo.lock
 
 /test-data/output/*
 !/test-data/output/.gitkeep
