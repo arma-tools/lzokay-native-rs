@@ -6,6 +6,7 @@ use byteorder::ReadBytesExt;
 
 /// The various errors that can be reported by this crate.
 #[derive(thiserror::Error, Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Unknown error
     #[error("Unknown Error")]
@@ -14,6 +15,10 @@ pub enum Error {
     /// Output overrun
     #[error("Output overrun")]
     OutputOverrun,
+
+    /// A match of the compressed data reaches before the start of the output: the data is corrupt
+    #[error("Lookbehind overrun")]
+    LookbehindOverrun,
 
     /// `IOError`
     #[error("read or write failed, source: {0}")]

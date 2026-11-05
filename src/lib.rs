@@ -232,4 +232,62 @@ mod tests {
         let size2 = crate::decompress::decompress(&mut Cursor::new(compressed), None).unwrap();
         fs::write("./test-data/output/pic_small.out.png", size2).unwrap();
     }
+
+    #[cfg(feature = "decompress")]
+    #[test]
+    fn decompress_lookbehind_overrun() {
+        // 4 literals, then a match 2041 bytes back.
+        let data = [0x15, 1, 2, 3, 4, 0x40, 0xff];
+
+        let result = crate::decompress::decompress_all(&data, None);
+        assert!(matches!(result, Err(crate::Error::LookbehindOverrun)));
+        let result = crate::decompress::decompress_all_bounded(&data, 100);
+        assert!(matches!(result, Err(crate::Error::LookbehindOverrun)));
+    }
+
+    #[cfg(feature = "decompress")]
+    #[test]
+    fn decompress_huge_expected_size() {
+        let compressed = fs::read("./test-data/compressed/fields.c.lzo").unwrap();
+        let uncompressed = fs::read("./test-data/uncompressed/fields.c").unwrap();
+
+        // Only a hint, not allocated up front.
+        let decompressed =
+            crate::decompress::decompress_all(&compressed, Some(usize::MAX)).unwrap();
+        assert_eq!(decompressed, uncompressed);
+    }
+
+    #[cfg(feature = "decompress")]
+    #[test]
+    fn decompress_corrupt_data() {
+        let mut seed = 0x9e37_79b9_7f4a_7c15_u64;
+        let mut next = || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed as usize
+        };
+
+        for name in ["fields.c", "grammar.lsp", "xargs.1"] {
+            let compressed = fs::read(format!("./test-data/compressed/{name}.lzo")).unwrap();
+            let size = fs::read(format!("./test-data/uncompressed/{name}"))
+                .unwrap()
+                .len();
+
+            for i in 0..500 {
+                let mut data = compressed.clone();
+                for _ in 0..=next() % 4 {
+                    let pos = next() % data.len();
+                    data[pos] = next() as u8;
+                }
+                if i % 5 == 0 {
+                    data.truncate(1 + next() % data.len());
+                }
+
+                // Errors or garbage output, but no panics.
+                let _ = crate::decompress::decompress_all(&data, Some(size));
+                let _ = crate::decompress::decompress_all_bounded(&data, size);
+            }
+        }
+    }
 }
