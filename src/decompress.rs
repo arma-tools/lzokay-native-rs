@@ -2,7 +2,7 @@ use std::io::{Read, Seek, Write};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::util::{M3_MARKER, M4_MARKER, consume_zero_byte_length_stream, peek_u8, read_bytes};
+use crate::util::{M3_MARKER, M4_MARKER, consume_zero_byte_length_stream, read_bytes_into};
 
 /// Most bytes reserved up front for the output, whatever size the caller expects.
 const MAX_INITIAL_CAPACITY: usize = 1 << 20;
@@ -57,7 +57,7 @@ pub fn decompress_bounded<I>(reader: &mut I, max_size: usize) -> Result<Vec<u8>,
 where
     I: Read + Seek,
 {
-    decompress_inner(reader, None, Some(max_size))
+    decompress_inner(reader, Some(max_size), Some(max_size))
 }
 
 const fn ensure_output_size(
@@ -85,7 +85,7 @@ where
     I: Read + Seek,
 {
     ensure_output_size(result.len(), len, max_size)?;
-    result.write_all(&read_bytes(reader, len)?)?;
+    read_bytes_into(reader, result, len)?;
     Ok(())
 }
 
@@ -111,23 +111,28 @@ where
     let mut n_state: usize;
 
     /* First byte encoding */
-    if peek_u8(reader)? >= 22 {
+    let first = reader.read_u8()?;
+    let mut pending = None;
+    if first >= 22 {
         /* 22..255 : copy literal string
          *           length = (byte - 17) = 4..238
          *           state = 4 [ don't copy extra literals ]
          *           skip byte
          */
-        let len: usize = (reader.read_u8()? - 17) as usize;
+        let len: usize = (first - 17) as usize;
         write_read_bytes(reader, &mut result, len, max_size)?;
         state = 4;
-    } else if peek_u8(reader)? >= 18 {
+    } else if first >= 18 {
         /* 18..21 : copy 0..3 literals
          *          state = (byte - 17) = 0..3  [ copy <state> literals ]
          *          skip byte
          */
-        n_state = (reader.read_u8()? - 17) as usize;
+        n_state = (first - 17) as usize;
         state = n_state;
         write_read_bytes(reader, &mut result, n_state, max_size)?;
+    } else {
+        /* 0..17 : the first instruction */
+        pending = Some(first);
     }
     loop
     /* 0..17 : follow regular instruction encoding, see below. It is worth
@@ -136,7 +141,10 @@ where
      *         invalid at this place.
      */
     {
-        let inst = reader.read_u8()?;
+        let inst = match pending.take() {
+            Some(inst) => inst,
+            None => reader.read_u8()?,
+        };
         if (u32::from(inst) & 0xc0) != 0 {
             /* [M2]
              * 1 L L D D D S S  (128..255)
@@ -167,8 +175,8 @@ where
              */
             lblen = ((inst & 0x1f) as usize).wrapping_add(2);
             if lblen == 2 {
-                let offset = consume_zero_byte_length_stream(reader)?;
-                lblen += (offset * 255 + 31 + u64::from(reader.read_u8()?)) as usize;
+                let (offset, last) = consume_zero_byte_length_stream(reader)?;
+                lblen += (offset * 255 + 31 + u64::from(last)) as usize;
             }
             n_state = reader.read_u16::<LittleEndian>()? as usize;
             distance = (n_state >> 2) + 1;
@@ -185,8 +193,8 @@ where
              */
             lblen = ((inst & 0x7) as usize).wrapping_add(2); /* Stream finished */
             if lblen == 2 {
-                let offset = consume_zero_byte_length_stream(reader)?;
-                lblen += (offset * 255 + 7 + u64::from(reader.read_u8()?)) as usize;
+                let (offset, last) = consume_zero_byte_length_stream(reader)?;
+                lblen += (offset * 255 + 7 + u64::from(last)) as usize;
             }
             n_state = reader.read_u16::<LittleEndian>()? as usize;
 
@@ -209,8 +217,8 @@ where
              */
             let mut len: usize = (inst + 3) as usize;
             if len == 3 {
-                let offset = consume_zero_byte_length_stream(reader)?;
-                len += (offset * 255 + 15 + u64::from(reader.read_u8()?)) as usize;
+                let (offset, last) = consume_zero_byte_length_stream(reader)?;
+                len += (offset * 255 + 15 + u64::from(last)) as usize;
             }
             /* copy_literal_run */
             write_read_bytes(reader, &mut result, len, max_size)?;
